@@ -1,99 +1,164 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
-import axios from "axios";
-import { toggleBookmark } from "../store/slices/eventSlice";
-import EventComments from "../components/EventComments";
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchEventById, addComment } from '../store/slices/eventSlice';
+import { createBooking } from '../store/slices/bookingSlice';
+import EventComments from '../components/EventComments';
+import SocialShare from '../components/SocialShare';
 
-export default function EventDetailsPage() {
-  const { id: eventId } = useParams(); // grabs event ID from URL
+const EventDetailsPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { bookmarks } = useSelector((state) => state.events);
-  const { token } = useSelector((state) => state.auth);
-
-  const [event, setEvent] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const fetchEvent = useCallback(async () => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/events/${eventId}`);
-      setEvent(res.data.data); // backend returns { data: {...} }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load event details.");
-    } finally {
-      setLoading(false);
-    }
-  }, [eventId]);
+  
+  const { currentEvent, loading } = useSelector((state) => state.events);
+  const { userInfo } = useSelector((state) => state.auth);
+  const { loading: bookingLoading } = useSelector((state) => state.bookings);
+  
+  const [commentText, setCommentText] = useState('');
+  const [showBookingSuccess, setShowBookingSuccess] = useState(false);
 
   useEffect(() => {
-    fetchEvent();
-  }, [fetchEvent]);
+    dispatch(fetchEventById(id));
+  }, [dispatch, id]);
 
   const handleBooking = async () => {
+    if (!userInfo) {
+      navigate('/login');
+      return;
+    }
+
     try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL}/bookings`,
-        { eventId },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert("Booking successful!");
-    } catch (err) {
-      console.error(err);
-      alert("Booking failed!");
+      await dispatch(createBooking(id)).unwrap();
+      setShowBookingSuccess(true);
+      setTimeout(() => setShowBookingSuccess(false), 3000);
+    } catch (error) {
+      alert('Failed to book event: ' + error.message);
     }
   };
 
-  const handleBookmark = () => {
-    dispatch(toggleBookmark(eventId));
+  const handleAddComment = () => {
+    if (!userInfo) {
+      navigate('/login');
+      return;
+    }
+
+    if (commentText.trim()) {
+      dispatch(addComment({ eventId: id, content: commentText }));
+      setCommentText('');
+    }
   };
 
-  const handleShare = () => {
-    const shareUrl = `${window.location.origin}/events/${eventId}`;
-    navigator.clipboard.writeText(shareUrl);
-    alert("Event link copied to clipboard!");
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
-  if (loading) return <p className="text-center mt-10">Loading event...</p>;
-  if (error) return <p className="text-center mt-10 text-red-500">{error}</p>;
-  if (!event) return <p className="text-center mt-10">Event not found.</p>;
+  if (!currentEvent) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <p className="text-center">Event not found.</p>
+      </div>
+    );
+  }
 
-  const isBookmarked = bookmarks.includes(eventId);
+  const isUserAttending = currentEvent.attendees?.some(
+    attendee => attendee._id === userInfo?._id
+  );
 
   return (
-    <div className="p-6 max-w-3xl mx-auto border rounded shadow">
-      <h1 className="text-2xl font-bold">{event.title || event.name}</h1>
-      <p className="text-gray-600">{event.category}</p>
-      <p className="text-gray-500">{new Date(event.date).toLocaleString()}</p>
-      <p className="mt-4">{event.description}</p>
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto">
+        {showBookingSuccess && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            Successfully booked! Check your dashboard for details.
+          </div>
+        )}
 
-      {token && (
-        <button
-          onClick={handleBooking}
-          className="mt-4 mr-4 bg-green-500 text-white p-2 rounded hover:bg-green-600"
-        >
-          Book Event
-        </button>
-      )}
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <h1 className="text-3xl font-bold mb-4">{currentEvent.name}</h1>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <p className="text-gray-600">
+                <span className="font-semibold">Date:</span> {new Date(currentEvent.date).toLocaleDateString()}
+              </p>
+              <p className="text-gray-600">
+                <span className="font-semibold">Location:</span> {currentEvent.location}
+              </p>
+              <p className="text-gray-600">
+                <span className="font-semibold">Category:</span> {currentEvent.category}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-600">
+                <span className="font-semibold">Price:</span> ${currentEvent.price}
+              </p>
+              <p className="text-gray-600">
+                <span className="font-semibold">Organizer:</span> {currentEvent.organizer?.name}
+              </p>
+              <p className="text-gray-600">
+                <span className="font-semibold">Attendees:</span> {currentEvent.attendees?.length || 0}
+              </p>
+            </div>
+          </div>
 
-      <button
-        onClick={handleBookmark}
-        className={`mt-4 mr-4 px-4 py-2 rounded ${
-          isBookmarked ? "bg-yellow-500" : "bg-gray-300"
-        }`}
-      >
-        {isBookmarked ? "Bookmarked" : "Bookmark"}
-      </button>
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-2">Description</h2>
+            <p className="text-gray-700">{currentEvent.description}</p>
+          </div>
 
-      <button
-        onClick={handleShare}
-        className="mt-4 px-4 py-2 rounded bg-blue-500 text-white hover:bg-blue-600"
-      >
-        Share
-      </button>
+          <div className="flex flex-wrap gap-4 mb-6">
+            {isUserAttending ? (
+              <button
+                disabled
+                className="bg-gray-400 text-white px-6 py-2 rounded cursor-not-allowed"
+              >
+                Already Booked
+              </button>
+            ) : (
+              <button
+                onClick={handleBooking}
+                disabled={bookingLoading}
+                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                {bookingLoading ? 'Booking...' : 'Book Now'}
+              </button>
+            )}
+            
+            <SocialShare event={currentEvent} />
+          </div>
 
-      <EventComments eventId={eventId} />
+          <div className="border-t pt-6">
+            <h2 className="text-xl font-semibold mb-4">Comments</h2>
+            
+            {userInfo && (
+              <div className="mb-4">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="w-full p-2 border rounded"
+                  rows="3"
+                />
+                <button
+                  onClick={handleAddComment}
+                  className="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                >
+                  Post Comment
+                </button>
+              </div>
+            )}
+
+            <EventComments comments={currentEvent.comments || []} />
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default EventDetailsPage;

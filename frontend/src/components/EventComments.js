@@ -1,57 +1,27 @@
-import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
-import { useSelector } from "react-redux";
+import React from 'react';
 
-export default function EventComments({ eventId }) {
-  const { token } = useSelector(state => state.auth);
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState("");
-
-  const fetchComments = useCallback(async () => {
-    const res = await axios.get(`${process.env.REACT_APP_API_URL}/events/${eventId}/comments`);
-    setComments(res.data.comments);
-  }, [eventId]);
-
-  useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
-
-  const handleSubmit = async () => {
-    if (!newComment) return;
-    await axios.post(
-      `${process.env.REACT_APP_API_URL}/events/${eventId}/comments`,
-      { content: newComment },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    setNewComment("");
-    fetchComments();
-  };
+const EventComments = ({ comments }) => {
+  if (!comments || comments.length === 0) {
+    return <p className="text-gray-500">No comments yet. Be the first to comment!</p>;
+  }
 
   return (
-    <div className="mt-4">
-      <h3 className="font-bold mb-2">Comments</h3>
-      <div className="mb-2">
-        <input
-          type="text"
-          value={newComment}
-          onChange={e => setNewComment(e.target.value)}
-          placeholder="Add a comment"
-          className="border p-2 rounded w-full"
-        />
-        <button
-          onClick={handleSubmit}
-          className="bg-blue-500 text-white p-2 rounded mt-2 hover:bg-blue-600"
-        >
-          Post
-        </button>
-      </div>
-      <div>
-        {comments.map(c => (
-          <div key={c._id} className="border p-2 rounded mb-2">
-            <strong>{c.user?.name || "Unknown"}</strong>: {c.content}
+    <div className="space-y-4">
+      {comments.map((comment, index) => (
+        <div key={comment._id || index} className="border-b pb-3">
+          <div className="flex justify-between items-start">
+            <div>
+              <p className="font-semibold">{comment.user?.name || 'Anonymous'}</p>
+              <p className="text-gray-700 mt-1">{comment.content}</p>
+            </div>
+            <span className="text-xs text-gray-500">
+              {new Date(comment.createdAt).toLocaleDateString()}
+            </span>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
   );
-}
+};
+
+export default EventComments;

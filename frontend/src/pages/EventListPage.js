@@ -1,59 +1,91 @@
-import React, { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { fetchEvents, toggleBookmark } from "../store/slices/eventSlice.js";
-import { Link } from "react-router-dom";
-import EventFilter from "../components/EventFilter.js";
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchEvents, fetchRecommendedEvents } from '../store/slices/eventSlice';
+import EventCard from '../components/EventCard';
+import EventFilter from '../components/EventFilter';
 
-export default function EventListPage() {
+const EventListPage = () => {
   const dispatch = useDispatch();
-  // FIXED: Changed from 'list' to 'events'
-  const { events, loading, error, bookmarks } = useSelector((state) => state.events);
+  const { events, recommendedEvents, loading, totalPages, currentPage } = useSelector((state) => state.events);
+  const { userInfo } = useSelector((state) => state.auth);
+  
+  const [filters, setFilters] = useState({
+    category: '',
+    location: '',
+    search: ''
+  });
 
   useEffect(() => {
-    dispatch(fetchEvents());
-    const interval = setInterval(() => dispatch(fetchEvents()), 10000); // every 10s
-    return () => clearInterval(interval);
-  }, [dispatch]);
+    dispatch(fetchEvents({ ...filters, page: currentPage }));
+    if (userInfo) {
+      dispatch(fetchRecommendedEvents());
+    }
+  }, [dispatch, filters, currentPage, userInfo]);
 
-  if (loading) return <p className="text-center mt-10">Loading events...</p>;
-  if (error) return <p className="text-center mt-10 text-red-500">{error}</p>;
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handlePageChange = (page) => {
+    dispatch(fetchEvents({ ...filters, page }));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Event Management System</h1>
-      <EventFilter />
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-8">Upcoming Events</h1>
       
-      {/* Show message if no events */}
-      {events.length === 0 && !loading ? (
-        <div className="text-center mt-10">
-          <p className="text-gray-500">No events available</p>
-          <p className="text-sm text-gray-400">Backend API might not be connected</p>
+      <EventFilter onFilterChange={handleFilterChange} />
+      
+      {userInfo && recommendedEvents.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-2xl font-semibold mb-4">Recommended For You</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {recommendedEvents.slice(0, 3).map((event) => (
+              <EventCard key={event._id} event={event} />
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {events.map((event) => (
-            <div key={event._id} className="border rounded p-4 shadow hover:shadow-lg relative">
-              <h2 className="font-bold text-lg">{event.name || event.title}</h2>
-              <p className="text-gray-600">{event.category}</p>
-              <p className="text-gray-500">{event.date}</p>
-              <button
-                onClick={() => dispatch(toggleBookmark(event._id))}
-                className={`absolute top-2 right-2 ${
-                  bookmarks.includes(event._id) ? "text-yellow-500" : "text-gray-400"
-                }`}
-              >
-                ★
-              </button>
-              <Link
-                to={`/event/${event._id}`}
-                className="mt-2 inline-block bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
-              >
-                View Details
-              </Link>
-            </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {events.map((event) => (
+          <EventCard key={event._id} event={event} />
+        ))}
+      </div>
+
+      {events.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">No events found. Try adjusting your filters.</p>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-8 space-x-2">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => handlePageChange(page)}
+              className={`px-3 py-1 rounded ${
+                page === currentPage
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 hover:bg-gray-300'
+              }`}
+            >
+              {page}
+            </button>
           ))}
         </div>
       )}
     </div>
   );
-}
+};
+
+export default EventListPage;

@@ -1,26 +1,28 @@
-// src/routes/events.js
 import express from "express";
-import { 
-  createEvent, getEvents, getEventById, updateEvent, deleteEvent,
-  addComment, getComments
+import {
+  getEvents,
+  getEventById,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  addComment,
+  getRecommendedEvents
 } from "../controllers/eventController.js";
-import { protect, authorize } from "../middleware/auth.js";
+import { protect, admin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// ----------------- Event CRUD -----------------
-// Public
-router.get("/", getEvents);
-router.get("/:id", getEventById);
+router.route("/")
+  .get(getEvents)
+  .post(protect, admin, createEvent);
 
-// Admin only
-router.post("/", protect, authorize("admin"), createEvent);
-router.put("/:id", protect, authorize("admin"), updateEvent);
-router.delete("/:id", protect, authorize("admin"), deleteEvent);
+router.get("/recommendations", protect, getRecommendedEvents);
 
-// ----------------- Comments -----------------
-// Protected
+router.route("/:id")
+  .get(getEventById)
+  .put(protect, admin, updateEvent)
+  .delete(protect, admin, deleteEvent);
+
 router.post("/:id/comments", protect, addComment);
-router.get("/:id/comments", getComments);
 
 export default router;

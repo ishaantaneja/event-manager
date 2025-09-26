@@ -1,20 +1,19 @@
 import express from "express";
 import {
   createBooking,
-  getMyBookings,
+  getUserBookings,
   cancelBooking,
+  getAllBookings
 } from "../controllers/bookingController.js";
-import { protect } from "../middleware/auth.js";
+import { protect, admin } from "../middleware/auth.js";
 
 const router = express.Router();
 
-// @route POST /api/bookings
-router.post("/", protect, createBooking);
+router.route("/")
+  .get(protect, getUserBookings)
+  .post(protect, createBooking);
 
-// @route GET /api/bookings/my
-router.get("/my", protect, getMyBookings);
-
-// @route DELETE /api/bookings/:id
-router.delete("/:id", protect, cancelBooking);
+router.get("/all", protect, admin, getAllBookings);
+router.put("/:id/cancel", protect, cancelBooking);
 
 export default router;

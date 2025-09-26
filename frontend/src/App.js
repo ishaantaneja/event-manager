@@ -1,28 +1,49 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, useParams } from "react-router-dom";
-import LoginPage from "./pages/LoginPage.js";
-import RegisterPage from "./pages/RegisterPage.js";
-import EventListPage from "./pages/EventListPage.js";
-import EventDetailPage from "./pages/EventDetailsPage.js";
-import DashboardPage from "./pages/DashboardPage.js";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { Provider } from "react-redux";
+import { store } from "./store/store";
+import Navigation from "./components/Navigation";
+import ProtectedRoute from "./components/ProtectedRoute";
 
-// Wrapper to pass eventId from URL params
-function EventDetailPageWrapper() {
-  const { id } = useParams();
-  return <EventDetailPage eventId={id} />;
-}
+// Pages
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import EventListPage from "./pages/EventListPage";
+import EventDetailsPage from "./pages/EventDetailsPage";
+import DashboardPage from "./pages/DashboardPage";
+import AdminDashboardPage from "./pages/AdminDashboardPage";
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/" element={<EventListPage />} />
-        <Route path="/event/:id" element={<EventDetailPageWrapper />} /> {/* Using wrapper */}
-        <Route path="/dashboard" element={<DashboardPage />} />
-      </Routes>
-    </Router>
+    <Provider store={store}>
+      <Router>
+        <div className="min-h-screen bg-gray-100">
+          <Navigation />
+          <Routes>
+            <Route path="/" element={<EventListPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/event/:id" element={<EventDetailsPage />} />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute adminOnly>
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </div>
+      </Router>
+    </Provider>
   );
 }
 
