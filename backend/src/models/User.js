@@ -11,6 +11,20 @@ const userSchema = new mongoose.Schema({
     categories: [{ type: String }],
     locations: [{ type: String }],
   },
+  notificationPreferences: {
+    emailNotifications: { type: Boolean, default: true },
+    bookingConfirmations: { type: Boolean, default: true },
+    eventReminders: { type: Boolean, default: true },
+    eventUpdates: { type: Boolean, default: true },
+    promotions: { type: Boolean, default: false },
+    newsletter: { type: Boolean, default: false }
+  },
+  profileImage: String,
+  bio: String,
+  phoneNumber: String,
+  lastLogin: Date,
+  isActive: { type: Boolean, default: true },
+  isVerified: { type: Boolean, default: false }
 }, { timestamps: true });
 
 // Encrypt password
