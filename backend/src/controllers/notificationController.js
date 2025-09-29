@@ -1,4 +1,5 @@
 import Notification from "../models/Notification.js";
+import User from "../models/User.js";
 import { emitToUser } from "../socket/socketHandlers.js";
 
 // Get user notifications
@@ -132,7 +133,7 @@ export const getPreferences = async (req, res, next) => {
       newsletter: false
     };
     
-    res.json(user.notificationPreferences || defaultPreferences);
+    res.json(user?.notificationPreferences || defaultPreferences);
   } catch (error) {
     next(error);
   }
@@ -143,13 +144,20 @@ export const updatePreferences = async (req, res, next) => {
   try {
     const { preferences } = req.body;
     
-    await User.findByIdAndUpdate(
+    const user = await User.findByIdAndUpdate(
       req.user._id,
       { notificationPreferences: preferences },
-      { new: true }
+      { new: true, runValidators: true }
     );
     
-    res.json({ message: "Notification preferences updated successfully" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    res.json({ 
+      message: "Notification preferences updated successfully",
+      preferences: user.notificationPreferences 
+    });
   } catch (error) {
     next(error);
   }
