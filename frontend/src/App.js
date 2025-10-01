@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Provider } from "react-redux";
 import { Toaster } from 'react-hot-toast';
@@ -6,6 +6,8 @@ import { store } from "./store/store";
 import { SocketProvider } from "./contexts/SocketContext";
 import Navigation from "./components/Navigation";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { startHealthMonitoring, stopHealthMonitoring } from "./services/api";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
@@ -17,10 +19,21 @@ import AdminDashboardPage from "./pages/AdminDashboardPage";
 import ExternalEventsPage from "./pages/ExternalEventsPage";
 
 function App() {
+  useEffect(() => {
+    // Start health monitoring
+    startHealthMonitoring();
+    
+    // Cleanup on unmount
+    return () => {
+      stopHealthMonitoring();
+    };
+  }, []);
+
   return (
     <Provider store={store}>
-      <SocketProvider>
-        <Router>
+      <ErrorBoundary>
+        <SocketProvider>
+          <Router>
           <div className="min-h-screen bg-black relative overflow-hidden">
             {/* Animated cyberpunk background */}
             <div className="fixed inset-0 z-0">
@@ -103,8 +116,9 @@ function App() {
               }}
             />
           </div>
-        </Router>
-      </SocketProvider>
+          </Router>
+        </SocketProvider>
+      </ErrorBoundary>
     </Provider>
   );
 }

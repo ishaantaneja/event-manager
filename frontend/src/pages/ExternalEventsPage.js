@@ -257,7 +257,18 @@ const ExternalEventsPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Discover Events Worldwide 🌍</h1>
+      {/* Header with Enhanced Visibility */}
+      <div className="text-center py-8 relative mb-8">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 via-pink-600/10 to-cyan-600/10 blur-3xl"></div>
+        <h1 className="relative text-5xl font-bold mb-4">
+          <span className="text-transparent bg-gradient-to-r from-red-500 via-purple-500 to-blue-500 bg-clip-text animate-gradient-x">
+            Discover Events Worldwide 🌍
+          </span>
+        </h1>
+        <p className="relative text-purple-300 text-lg">
+          Explore events from around the globe powered by external APIs
+        </p>
+      </div>
 
       {/* Search and Filters */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
