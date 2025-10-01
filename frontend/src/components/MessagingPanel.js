@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 
 const MessagingPanel = ({ isAdmin = false }) => {
   const { userInfo } = useSelector((state) => state.auth);
-  const socket = useSocket();
+  const { socket } = useSocket();
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);

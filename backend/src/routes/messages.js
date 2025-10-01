@@ -155,10 +155,69 @@ router.get('/conversation/:conversationId', async (req, res) => {
   }
 });
 
-// Original routes
+// Send message in a conversation (support chat compatible)
+router.post('/send', async (req, res) => {
+  try {
+    const { conversationId, content } = req.body;
+    const senderId = req.user._id;
+    
+    if (!conversationId || !content) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'conversationId and content are required' 
+      });
+    }
+    
+    // Determine receiver from conversationId
+    // Support chat format: support_userId_adminId_timestamp
+    // Regular chat format: userId1-userId2 (sorted)
+    let receiverId;
+    
+    if (conversationId.startsWith('support_')) {
+      // Support chat - extract the other participant's ID
+      const parts = conversationId.split('_');
+      const userId = parts[1];
+      const adminId = parts[2];
+      
+      // If sender is user, receiver is admin, and vice versa
+      receiverId = senderId.toString() === userId ? adminId : userId;
+    } else {
+      // Regular chat - extract other user ID from conversationId
+      const [id1, id2] = conversationId.split('-');
+      receiverId = senderId.toString() === id1 ? id2 : id1;
+    }
+    
+    // Create message
+    const message = await Message.create({
+      sender: senderId,
+      receiver: receiverId,
+      content,
+      conversationId
+    });
+    
+    // Populate sender info
+    const populatedMessage = await Message.findById(message._id)
+      .populate('sender', 'name email role');
+    
+    // Emit real-time notification
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user_${receiverId}`).emit('new-message', populatedMessage);
+    }
+    
+    res.status(201).json(populatedMessage);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to send message' 
+    });
+  }
+});
+
+// Original routes (excluding send - handled above)
 router.get("/conversations", getConversations);
 router.get("/messages/:otherUserId", getMessages);
-router.post("/send", sendMessage);
 router.put("/mark-read", markAsRead);
 router.delete("/:messageId", deleteMessage);
 router.get("/unread-count", getUnreadCount);
