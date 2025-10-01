@@ -19,7 +19,7 @@ router.use(protect); // All message routes require authentication
 // Start support chat endpoint
 router.post('/support/start', async (req, res) => {
   try {
-    const userId = req.userId;
+    const userId = req.user._id;
     const currentUser = await User.findById(userId).select('name email');
     
     // Find an available admin
@@ -72,7 +72,7 @@ router.post('/support/start', async (req, res) => {
       // Send notification to admin
       const notification = await Notification.create({
         user: admin._id,
-        type: 'message',
+        type: 'new_message',
         title: 'New Support Request',
         message: `New support chat from ${currentUser.name}`,
         relatedId: conversationId,
