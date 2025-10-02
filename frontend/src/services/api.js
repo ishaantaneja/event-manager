@@ -48,8 +48,8 @@ const retryRequest = async (error, retries = 3) => {
     return Promise.reject(error);
   }
   
-  // Don't retry non-retriable errors
-  const nonRetriableStatuses = [400, 401, 403, 404, 422];
+  // Don't retry non-retriable errors (including 429 rate limiting)
+  const nonRetriableStatuses = [400, 401, 403, 404, 422, 429];
   if (response && nonRetriableStatuses.includes(response.status)) {
     return Promise.reject(error);
   }
@@ -106,16 +106,14 @@ api.interceptors.response.use(
         break;
         
       case 429:
-        // Rate limiting - retry with backoff
-        const retryAfter = error.response.headers['retry-after'];
-        const delay = retryAfter ? parseInt(retryAfter) * 1000 : 5000;
-        toast.error(`Too many requests - please wait ${delay/1000} seconds`);
-        
-        return new Promise((resolve) => {
-          setTimeout(() => {
-            resolve(api(error.config));
-          }, delay);
-        });
+        // Rate limiting - DON'T retry automatically to avoid cascading failures
+        // Just show error once and let circuit breaker handle it
+        if (!error.config._rateLimitErrorShown) {
+          error.config._rateLimitErrorShown = true;
+          toast.error('Too many requests - slowing down automatically');
+        }
+        // Don't retry, just reject
+        break;
         
       case 500:
       case 502:
@@ -150,14 +148,44 @@ export const checkHealth = async () => {
   }
 };
 
-// Connection monitor
+// Connection monitor with circuit breaker pattern (resilience engineering)
 let healthCheckInterval;
+let consecutiveFailures = 0;
+const MAX_FAILURES = 3; // Circuit breaker threshold
 
-export const startHealthMonitoring = (interval = 60000) => {
+export const startHealthMonitoring = (interval = 180000) => { // Increased from 60s to 180s (3 minutes) to reduce API calls
+  // Clear any existing interval to prevent memory leaks & duplicate polling
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+  }
+  
   healthCheckInterval = setInterval(async () => {
-    const health = await checkHealth();
-    if (health.status !== 'OK') {
-      console.warn('Backend health degraded:', health);
+    try {
+      const health = await checkHealth();
+      
+      if (health.status !== 'OK') {
+        consecutiveFailures++;
+        console.warn(`Backend health degraded (${consecutiveFailures}/${MAX_FAILURES}):`, health);
+        
+        // Circuit breaker: stop monitoring after too many failures to avoid thundering herd problem
+        if (consecutiveFailures >= MAX_FAILURES) {
+          console.error('Circuit breaker triggered - stopping health checks to prevent rate limiting');
+          stopHealthMonitoring();
+          toast.error('Connection issues detected - please refresh the page if needed');
+        }
+      } else {
+        // Reset failure counter on success (circuit closed)
+        consecutiveFailures = 0;
+      }
+    } catch (error) {
+      consecutiveFailures++;
+      console.error('Health check error:', error);
+      
+      // Trigger circuit breaker
+      if (consecutiveFailures >= MAX_FAILURES) {
+        console.error('Circuit breaker opened - stopping health monitoring');
+        stopHealthMonitoring();
+      }
     }
   }, interval);
 };
@@ -165,6 +193,7 @@ export const startHealthMonitoring = (interval = 60000) => {
 export const stopHealthMonitoring = () => {
   if (healthCheckInterval) {
     clearInterval(healthCheckInterval);
+    healthCheckInterval = null;
   }
 };
 

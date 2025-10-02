@@ -46,6 +46,10 @@ const MessagingPanel = ({ isAdmin = false }) => {
     try {
       const endpoint = isAdmin ? '/messages/admin/conversations' : '/messages/conversations';
       const { data } = await api.get(endpoint);
+      
+      console.log('Fetched conversations:', data);
+      console.log('First conversation structure:', data[0]);
+      
       setConversations(data);
       
       // Check if user has started support
@@ -55,17 +59,25 @@ const MessagingPanel = ({ isAdmin = false }) => {
       setSupportStarted(hasSupport || isAdmin);
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      toast.error('Failed to load conversations');
     }
   };
 
   const fetchMessages = async (conversationId) => {
+    if (!conversationId) {
+      console.error('Cannot fetch messages: conversationId is undefined');
+      toast.error('Invalid conversation selected');
+      return;
+    }
+    
     setLoading(true);
     try {
       const { data } = await api.get(`/messages/conversation/${conversationId}`);
-      setMessages(data);
+      setMessages(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');
+      setMessages([]); // Clear messages on error
     } finally {
       setLoading(false);
     }
@@ -118,6 +130,13 @@ const MessagingPanel = ({ isAdmin = false }) => {
   };
 
   const selectConversation = (conversation) => {
+    if (!conversation || !conversation._id) {
+      console.error('Invalid conversation object:', conversation);
+      toast.error('Cannot select conversation - invalid data');
+      return;
+    }
+    
+    console.log('Selecting conversation:', conversation._id);
     setSelectedConversation(conversation);
     fetchMessages(conversation._id);
   };
@@ -243,11 +262,11 @@ const MessagingPanel = ({ isAdmin = false }) => {
                   </div>
                 ) : (
                   <>
-                    {messages.map((message) => {
+                    {messages.map((message, index) => {
                       const isOwnMessage = message.sender._id === userInfo._id || message.sender === userInfo._id;
                       return (
                         <div
-                          key={message._id}
+                          key={message._id || `message-${index}`}
                           className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                         >
                           <div className={`max-w-[70%] ${isOwnMessage ? 'order-2' : 'order-1'}`}>

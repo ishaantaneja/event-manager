@@ -116,15 +116,65 @@ router.get('/admin/conversations', async (req, res) => {
     const conversationsMap = {};
     messages.forEach(msg => {
       if (!conversationsMap[msg.conversationId]) {
+        // Build participants list from sender/receiver
+        const participants = [];
+        if (msg.sender && !participants.find(p => p._id.toString() === msg.sender._id.toString())) {
+          participants.push({
+            _id: msg.sender._id,
+            name: msg.sender.name,
+            email: msg.sender.email,
+            role: msg.sender.role
+          });
+        }
+        if (msg.receiver && !participants.find(p => p._id.toString() === msg.receiver._id.toString())) {
+          participants.push({
+            _id: msg.receiver._id,
+            name: msg.receiver.name,
+            email: msg.receiver.email,
+            role: msg.receiver.role
+          });
+        }
+        
         conversationsMap[msg.conversationId] = {
           _id: msg.conversationId,
-          participants: [],
+          participants: participants,
           lastMessage: msg,
-          messages: []
+          messages: [],
+          unreadCount: 0
         };
       }
       conversationsMap[msg.conversationId].messages.push(msg);
+      
+      // Update participants if new ones found
+      const conv = conversationsMap[msg.conversationId];
+      if (msg.sender && !conv.participants.find(p => p._id.toString() === msg.sender._id.toString())) {
+        conv.participants.push({
+          _id: msg.sender._id,
+          name: msg.sender.name,
+          email: msg.sender.email,
+          role: msg.sender.role
+        });
+      }
+      if (msg.receiver && !conv.participants.find(p => p._id.toString() === msg.receiver._id.toString())) {
+        conv.participants.push({
+          _id: msg.receiver._id,
+          name: msg.receiver.name,
+          email: msg.receiver.email,
+          role: msg.receiver.role
+        });
+      }
     });
+    
+    // Count unread messages for each conversation
+    for (const convId in conversationsMap) {
+      const conv = conversationsMap[convId];
+      const unreadCount = await Message.countDocuments({
+        conversationId: convId,
+        receiver: req.user._id,
+        read: false
+      });
+      conv.unreadCount = unreadCount;
+    }
     
     const conversations = Object.values(conversationsMap);
     res.json(conversations);

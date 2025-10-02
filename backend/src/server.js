@@ -87,12 +87,17 @@ app.use(helmet({
 }));
 
 // Enhanced Rate limiting with dynamic configuration
-const limiter = rateLimit({ 
+// Separate rate limiters for different endpoint types
+const apiLimiter = rateLimit({ 
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 300, // Increased to 300 requests per window (from 100)
   message: "Too many requests, try again later",
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health check and stats endpoints
+    return req.path === '/api/health' || req.path === '/api/stats';
+  },
   handler: (req, res) => {
     console.error(`Rate limit exceeded for IP: ${req.ip}`);
     res.status(429).json({ 
@@ -101,7 +106,17 @@ const limiter = rateLimit({
     });
   }
 });
-app.use('/api/', limiter);
+
+// Separate lenient limiter for monitoring endpoints
+const monitoringLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: 100, // 100 requests per minute (way more than needed for 60s polling)
+  message: "Health check rate limit exceeded",
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use('/api/', apiLimiter);
 
 // Body parser with size limits
 app.use(express.json({ limit: "10mb" }));
