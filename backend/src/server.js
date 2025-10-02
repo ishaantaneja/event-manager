@@ -29,6 +29,9 @@ const app = express();
 const httpServer = createServer(app);
 const PORT = process.env.PORT || 5000;
 
+// ⚠️ CRITICAL: Trust proxy for Render deployment (needed for rate limiting & CORS)
+app.set('trust proxy', 1);
+
 // Memory Management & Performance Monitoring
 let connectionCount = 0;
 const MAX_CONNECTIONS = 1000;
@@ -36,7 +39,17 @@ const MAX_CONNECTIONS = 1000;
 // Enhanced Socket.io setup with connection management
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: function(origin, callback) {
+      // Allow all Vercel preview URLs
+      if (!origin || origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      // Allow configured CLIENT_URL
+      if (origin === process.env.CLIENT_URL || origin === "http://localhost:3000") {
+        return callback(null, true);
+      }
+      callback(null, true); // Allow all in production for now
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID", "x-request-id"]
@@ -48,7 +61,7 @@ const io = new Server(httpServer, {
 });
 
 // ⚠️ CRITICAL: CORS MUST BE FIRST MIDDLEWARE
-// Enhanced CORS configuration
+// Enhanced CORS configuration with Vercel preview URL support
 app.use(cors({ 
   origin: function(origin, callback) {
     const allowedOrigins = [
@@ -60,11 +73,16 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps or Postman)
     if (!origin) return callback(null, true);
     
+    // Allow all Vercel preview URLs (*.vercel.app)
+    if (origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
-      callback(null, true); // In development, allow all origins
+      callback(null, true); // In production, still allow for debugging
     }
   },
   credentials: true,
