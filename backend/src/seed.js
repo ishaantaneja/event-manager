@@ -8,6 +8,13 @@ dotenv.config();
 
 const seedDatabase = async () => {
   try {
+    // SAFETY CHECK: Prevent running against production
+    if (process.env.NODE_ENV === 'production') {
+      console.error('❌ ERROR: Cannot run seed script in production environment!');
+      console.error('This would delete all production data.');
+      process.exit(1);
+    }
+
     // Connect to database
     await mongoose.connect(process.env.MONGODB_URI);
     console.log('Connected to MongoDB');
