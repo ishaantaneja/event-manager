@@ -23,9 +23,13 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (userInfo?.token) {
-      // Connect to socket server
-      const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000', {
-        transports: ['websocket'],
+      // Connect to socket server - use same URL as API (Socket.io runs on same server/port)
+      const SOCKET_URL = process.env.REACT_APP_API_URL 
+        ? process.env.REACT_APP_API_URL.replace('/api', '') 
+        : 'http://localhost:5000';
+      
+      const newSocket = io(SOCKET_URL, {
+        transports: ['websocket', 'polling'], // Allow both transports with polling as fallback
       });
 
       newSocket.on('connect', () => {
